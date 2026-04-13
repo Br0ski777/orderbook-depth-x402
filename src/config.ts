@@ -36,6 +36,65 @@ Do NOT use for swap quotes -- use dex_get_swap_quote instead. Do NOT use for tok
         },
         required: ["pool"],
       },
+      outputSchema: {
+          "type": "object",
+          "properties": {
+            "pool": {
+              "type": "string",
+              "description": "Pool address"
+            },
+            "chain": {
+              "type": "string",
+              "description": "Chain"
+            },
+            "token0": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                }
+              }
+            },
+            "token1": {
+              "type": "object",
+              "properties": {
+                "symbol": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "string"
+                }
+              }
+            },
+            "currentPrice": {
+              "type": "number",
+              "description": "Current price"
+            },
+            "feeTier": {
+              "type": "number"
+            },
+            "liquidity": {
+              "type": "string",
+              "description": "Total liquidity"
+            },
+            "depth": {
+              "type": "object",
+              "description": "Depth at various price levels"
+            },
+            "analyzedAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pool",
+            "chain",
+            "currentPrice",
+            "depth"
+          ]
+        },
     },
   ],
 };
