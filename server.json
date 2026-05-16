@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Br0ski777/orderbook-depth",
   "title": "Order Book Depth API",
-  "description": "Uniswap V3 pool liquidity depth analysis — price impact at 1/2/5/10% levels. x402.",
+  "description": "Uniswap V3 pool liquidity depth analysis \u2014 price impact at 1/2/5/10% levels. x402.",
   "version": "1.0.0",
   "websiteUrl": "https://github.com/Br0ski777/orderbook-depth-x402",
   "repository": {
@@ -12,7 +12,7 @@
   "remotes": [
     {
       "type": "sse",
-      "url": "https://orderbook-depth-x402-production.up.railway.app/mcp"
+      "url": "https://orderbook-depth.api.klymax402.com/mcp"
     }
   ]
 }
