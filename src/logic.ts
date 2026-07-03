@@ -1,5 +1,20 @@
 import type { Hono } from "hono";
 
+
+// ATXP: requirePayment only fires inside an ATXP context (set by atxpHono middleware).
+// For raw x402 requests, the existing @x402/hono middleware handles the gate.
+// If neither protocol is active (ATXP_CONNECTION unset), tryRequirePayment is a no-op.
+async function tryRequirePayment(price: number): Promise<void> {
+  if (!process.env.ATXP_CONNECTION) return;
+  try {
+    const { requirePayment } = await import("@atxp/server");
+    const BigNumber = (await import("bignumber.js")).default;
+    await requirePayment({ price: BigNumber(price) });
+  } catch (e: any) {
+    if (e?.code === -30402) throw e;
+  }
+}
+
 const RPC_URLS: Record<string, string> = {
   base: "https://mainnet.base.org",
   ethereum: "https://eth.llamarpc.com",
@@ -49,9 +64,10 @@ function decodeAddress(hex: string): string {
 }
 
 export function registerRoutes(app: Hono) {
-  app.get("/api/depth", async (c) => {
-    const pool = c.req.query("pool");
-    const chain = (c.req.query("chain") || "base").toLowerCase();
+  async function handleDepth(c: any, params: { pool?: string; chain?: string }) {
+    await tryRequirePayment(0.005);
+    const pool = params.pool;
+    const chain = (params.chain || "base").toLowerCase();
 
     if (!pool || !pool.match(/^0x[a-fA-F0-9]{40}$/)) {
       return c.json({ error: "Missing or invalid pool address (0x...)" }, 400);
@@ -127,6 +143,25 @@ export function registerRoutes(app: Hono) {
     } catch (err: any) {
       return c.json({ error: "Failed to analyze pool", details: err.message }, 502);
     }
+  }
+
+  app.get("/api/depth", async (c) => {
+    return handleDepth(c, {
+      pool: c.req.query("pool"),
+      chain: c.req.query("chain"),
+    });
+  });
+
+  // POST mirror of the GET route above -- Bazaar (CDP) only reliably indexes
+  // POST payments with valid payloads (~82% conversion vs ~14% for GET-only
+  // resources, confirmed empirically). Same params, same logic, just body
+  // instead of query string.
+  app.post("/api/depth", async (c) => {
+    const body = await c.req.json().catch(() => ({}) as any);
+    return handleDepth(c, {
+      pool: body.pool,
+      chain: body.chain,
+    });
   });
 }
 

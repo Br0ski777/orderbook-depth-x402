@@ -13,6 +13,40 @@ app.get("/", (c) => c.json(healthResponse(API_CONFIG.name)));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 setupMcp(app, API_CONFIG);
 
+// ATXP/RFC 9728 — serve PRM on all resource-specific path variants the SDK probes.
+// The SDK uses oauth4webapi which strictly validates `resource` matches the
+// protected-resource URL the PRM path is about:
+//  - /.well-known/oauth-protected-resource           → resource: {origin}
+//  - /.well-known/oauth-protected-resource/{path}    → resource: {origin}/{path}   (RFC 9728 suffix)
+//  - /{path}/.well-known/oauth-protected-resource    → resource: {origin}/{path}   (legacy)
+app.use("*", async (c, next) => {
+  if (c.req.method !== "GET") return next();
+  const url = new URL(c.req.url);
+  const p = url.pathname;
+  const WK = "/.well-known/oauth-protected-resource";
+  let resourcePath: string | null = null;
+  if (p === WK) {
+    resourcePath = "";
+  } else if (p.startsWith(WK + "/")) {
+    resourcePath = p.slice(WK.length); // e.g. "/api/verify"
+  } else if (p.endsWith(WK)) {
+    resourcePath = p.slice(0, -WK.length); // e.g. "/api/verify"
+  } else {
+    return next();
+  }
+  // Railway terminates TLS upstream — request proto is http, but clients use https.
+  const proto = c.req.header("x-forwarded-proto") || url.protocol.replace(":", "") || "https";
+  const host = c.req.header("x-forwarded-host") || c.req.header("host") || url.host;
+  const resource = `${proto}://${host}${resourcePath || ""}`;
+  return c.json({
+    resource,
+    resource_name: API_CONFIG.name,
+    authorization_servers: ["https://auth.atxp.ai"],
+    bearer_methods_supported: ["header"],
+    scopes_supported: ["read", "write"],
+  });
+});
+
 
 async function setupPayments() {
   try {
@@ -34,6 +68,38 @@ async function setupPayments() {
     console.log("[x402] BASE MAINNET (Coinbase CDP + PayAI) — " + API_CONFIG.routes.length + " routes");
   } catch (e: any) { console.warn("[x402] FREE mode:", e.message); }
 }
+
+
+async function setupAtxp() {
+  const conn = process.env.ATXP_CONNECTION;
+  if (!conn) {
+    console.warn("[atxp] ATXP_CONNECTION not set — ATXP payments disabled. Set at accounts.atxp.ai");
+    return;
+  }
+  try {
+    const { atxpHono, ATXPAccount } = await import("./atxp-middleware");
+    // Build method+path → price lookup so the middleware can emit the
+    // 402 omni-challenge (body JSON format required by ATXPAccountHandler)
+    // when an authenticated ATXP client calls a protected route without payment.
+    const priceMap = new Map<string, number>();
+    for (const r of API_CONFIG.routes) {
+      const priceNum = parseFloat((r.price || "0").replace("$", ""));
+      priceMap.set(`${r.method} ${r.path}`, priceNum);
+    }
+    app.use("*", atxpHono({
+      destination: new ATXPAccount(conn),
+      payeeName: API_CONFIG.name,
+      priceForRequest: (method, path) => priceMap.get(`${method} ${path}`) ?? null,
+    }));
+    console.log(`[atxp] Enabled — ${priceMap.size} gated routes, omni-challenge active`);
+  } catch (e: any) {
+    console.warn("[atxp] Failed to init:", e.message);
+  }
+}
+
+// ORDER MATTERS: ATXP middleware MUST be registered BEFORE x402 so it can
+// intercept ATXP/MPP/OAuth requests first. For non-ATXP requests it falls through.
+await setupAtxp();
 
 await setupPayments();
 
