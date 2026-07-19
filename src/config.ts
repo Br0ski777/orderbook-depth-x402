@@ -9,7 +9,7 @@ export const API_CONFIG: ApiConfig = {
     {
       method: "GET",
       path: "/api/depth",
-      price: "$0.005",
+      price: "$0.012",
       description: "Analyze orderbook depth for a Uniswap V3 pool",
       toolName: "dex_analyze_orderbook_depth",
       toolDescription: `Use this when you need to analyze liquidity depth of a Uniswap V3 pool before a large trade. Returns depth analysis in JSON.
@@ -99,7 +99,7 @@ Do NOT use for swap quotes -- use dex_get_swap_quote instead. Do NOT use for tok
     {
       method: "POST",
       path: "/api/depth",
-      price: "$0.005",
+      price: "$0.012",
       description: "Analyze orderbook depth for a Uniswap V3 pool (POST variant)",
       toolName: "dex_analyze_orderbook_depth",
       toolDescription: `Use this when you need to analyze liquidity depth of a Uniswap V3 pool before a large trade. Returns depth analysis in JSON. POST variant of dex_analyze_orderbook_depth -- same params passed as JSON body instead of query string.
