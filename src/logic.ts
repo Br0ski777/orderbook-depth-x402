@@ -17,7 +17,7 @@ async function tryRequirePayment(price: number): Promise<void> {
 
 const RPC_URLS: Record<string, string> = {
   base: "https://mainnet.base.org",
-  ethereum: "https://eth.llamarpc.com",
+  ethereum: "https://ethereum-rpc.publicnode.com",
 };
 
 // Uniswap V3 Pool ABI (minimal)
